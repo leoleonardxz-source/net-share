@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260902">
+  <title>Net Share - File Transfer</title>
+  <link rel="stylesheet" href="style.css?v=20260906.3">
+</head>
+<body>
+  <div class="container">
+    <h1><img class="title-icon" src="favicon.svg" alt="">Net Share - 局域网文件传输</h1>
+
+    <div id="homeView" class="home-view">
+      <div id="status" class="status disconnected">正在连接服务器...</div>
+
+      <div class="room-section" style="margin-bottom: 16px; background: #16213e; border-radius: 10px; padding: 18px; border: 1px solid rgba(255, 255, 255, 0.06);">
+        <div class="section-header">
+          <h2>💻 本机设备</h2>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input id="deviceNameInput" type="text" maxlength="30" placeholder="给这台设备起个名字" style="flex: 1; border: 1px solid rgba(255,255,255,0.08); background: #1a1a2e; color: #eee; padding: 10px 12px; border-radius: 8px; outline: none;" />
+          <button id="refreshPeersButton" style="border: none; border-radius: 8px; padding: 10px 16px; background: linear-gradient(90deg, #00d9ff, #00ff88); color: #08111f; cursor: pointer; font-weight: 600;">刷新设备</button>
+        </div>
+        <div style="margin-top: 10px; font-size: 12px; color: #aaa;">仅发现共享同一公网出口的局域网设备；文字与文件仅通过设备间直连传输。</div>
+      </div>
+
+      <div class="peers-section">
+        <div class="section-header">
+          <h2>👥 在线设备</h2>
+          <div class="section-actions">
+            <button id="startChatButton" disabled>开始聊天</button>
+          </div>
+        </div>
+        <ul id="peerList">
+          <li class="empty-message">暂无其他设备在线</li>
+        </ul>
+      </div>
+
+      <div class="transfer-log">
+        <h2>📋 传输日志</h2>
+        <div id="logContainer">
+          <div class="log-entry info">等待连接...</div>
+        </div>
+        <div id="progressBar" class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <div id="progressText" class="progress-text"></div>
+        <div class="transfer-actions"><button id="transferCancelButton" type="button" hidden>取消传输</button></div>
+      </div>
+    </div>
+
+    <div id="chatView" class="chat-view hidden">
+      <div class="chat-shell">
+        <div class="chat-header">
+          <div class="chat-header-title">
+            <button id="backToHomeBtn" class="icon-button" title="返回首页">←</button>
+            <div>
+              <div id="chatTargetTitle" class="chat-title">聊天对象</div>
+              <div id="chatTargetSubtitle" class="chat-subtitle">正在连接</div>
+            </div>
+          </div>
+          <button id="closeChatBtn" class="icon-button" title="关闭聊天">✕</button>
+        </div>
+
+        <div id="chatMessages" class="chat-messages"></div>
+
+        <div class="chat-composer">
+          <button id="attachFileButton" class="secondary" title="选择要流式发送的文件">📎</button>
+          <input id="chatInput" type="text" placeholder="输入消息，回车发送" />
+          <button id="sendChatButton">发送</button>
+          <input id="chatFileInput" type="file" hidden />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="transferOverlay" class="transfer-overlay" hidden aria-live="polite">
+    <div class="transfer-dialog" role="status">
+      <h2 id="transferTitle">正在传输文件</h2>
+      <div class="transfer-overlay-track"><div id="transferProgressFill" class="transfer-overlay-fill"></div></div>
+      <div id="transferProgressText" class="transfer-overlay-text">正在准备传输…</div>
+      <div class="transfer-actions"><button id="stopTransferButton" type="button">停止传输</button></div>
+      <div class="transfer-overlay-note">文件传输进行中，请勿关闭页面或进行其他操作。</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="client.js?v=20260906.3"></script>
+</body>
+</html>
