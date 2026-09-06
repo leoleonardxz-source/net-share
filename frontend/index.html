@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260902">
   <title>Net Share - File Transfer</title>
-  <link rel="stylesheet" href="style.css?v=20260906.3">
+  <link rel="stylesheet" href="style.css?v=20260912.2">
 </head>
 <body>
   <div class="container">
@@ -67,7 +67,7 @@
 
         <div class="chat-composer">
           <button id="attachFileButton" class="secondary" title="选择要流式发送的文件">📎</button>
-          <input id="chatInput" type="text" placeholder="输入消息，回车发送" />
+          <textarea id="chatInput" rows="2" aria-label="聊天消息" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
           <button id="sendChatButton">发送</button>
           <input id="chatFileInput" type="file" hidden />
         </div>
@@ -85,7 +85,11 @@
     </div>
   </div>
 
+  <div id="messageCopyMenu" class="message-copy-menu" hidden role="menu" aria-label="消息操作"><button id="copyMessageButton" type="button" role="menuitem">复制</button></div>
+  <div id="copyMessageStatus" class="copy-message-status" role="status" aria-live="polite" hidden></div>
+
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="client.js?v=20260906.3"></script>
+  <script src="client.js?v=20260912.3"></script>
+  <script src="message-copy.js?v=20260912.2"></script>
 </body>
 </html>

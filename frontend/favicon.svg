@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Net Share 局域网文件传输</title>
+  <defs>
+    <linearGradient id="bg" x1="58" y1="36" x2="458" y2="476" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142548"/>
+      <stop offset="1" stop-color="#10172f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="95" y1="125" x2="420" y2="387" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00d9ff"/>
+      <stop offset="1" stop-color="#00ff88"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M151 201 256 139l105 62v122l-105 62-105-62V201Z" fill="none" stroke="url(#accent)" stroke-linejoin="round" stroke-width="24"/>
+  <circle cx="151" cy="201" r="30" fill="#00d9ff"/>
+  <circle cx="361" cy="201" r="30" fill="#00ff88"/>
+  <circle cx="256" cy="385" r="30" fill="#69eaff"/>
+  <path d="M222 250h72m-24-24 24 24-24 24" fill="none" stroke="#f4feff" stroke-linecap="round" stroke-linejoin="round" stroke-width="22"/>
+  <path d="M290 300h-72m24-24-24 24 24 24" fill="none" stroke="#f4feff" stroke-linecap="round" stroke-linejoin="round" stroke-width="22"/>
+</svg>
