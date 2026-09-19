@@ -411,7 +411,13 @@ h1 {
   align-items: center;
   background: rgba(255,255,255,0.03);
 }
-.chat-composer input {
+.chat-composer textarea {
+  min-width: 0;
+  min-height: 44px;
+  max-height: 160px;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
   flex: 1;
   border: 1px solid rgba(255,255,255,0.08);
   background: #1a1a2e;
@@ -477,3 +483,12 @@ body.chat-open .chat-shell {
 .transfer-overlay-fill { height: 100%; width: 0; background: linear-gradient(90deg, #00d9ff, #00ff88); transition: width .2s ease; }
 .transfer-overlay-text { margin-top: 13px; color: #c4d3dc; font-size: 14px; }
 .transfer-overlay-note { margin-top: 10px; color: #90a4ae; font-size: 12px; }
+
+.message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-copy-menu { position: fixed; z-index: 2000; padding: 5px; border: 1px solid #52647a; border-radius: 10px; background: #233248; box-shadow: 0 6px 24px #0008; }
+.message-copy-menu button { min-width: 100px; min-height: 44px; border: 0; border-radius: 6px; background: transparent; color: #fff; font: inherit; cursor: pointer; }
+.message-copy-menu button:hover, .message-copy-menu button:focus-visible { background: #37516f; }
+.copy-message-status { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 2100; padding: 10px 18px; border-radius: 8px; background: #233248; color: #fff; box-shadow: 0 4px 16px #0008; }
+@media (pointer: coarse) {
+  [data-text-index] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}

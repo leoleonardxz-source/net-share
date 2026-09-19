@@ -41,6 +41,10 @@ io.on('connection', (socket) => {
   const previous = sessions.get(key);
   if (previous) clearTimeout(previous.timer);
   socket.peerId = previous?.socket.peerId || socket.id;
+  // Transfer room ownership before cancelling the old connection's cleanup.
+  // The replacement may disconnect before its first join message arrives.
+  socket.currentRoom = previous?.socket.currentRoom || null;
+  if (socket.currentRoom) socket.join(socket.currentRoom);
   sessions.set(key, { socket });
   if (previous?.socket.connected) previous.socket.disconnect(true);
 
@@ -91,7 +95,10 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const session = sessions.get(key);
     if (session?.socket !== socket) return;
-    session.timer = setTimeout(() => { removeFromRoom(socket); sessions.delete(key); }, socket.pickingFile ? FILE_PICKER_GRACE_MS : RECONNECT_GRACE_MS);
+    session.timer = setTimeout(() => {
+      if (sessions.get(key) !== session) return;
+      removeFromRoom(socket); sessions.delete(key);
+    }, socket.pickingFile ? FILE_PICKER_GRACE_MS : RECONNECT_GRACE_MS);
   });
 });
 

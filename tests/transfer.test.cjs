@@ -23,6 +23,75 @@ class Channel extends EventTarget {
   send(data) { this.sent.push(typeof data === 'string' ? JSON.parse(data) : Buffer.from(data)); }
 }
 
+test('snapshot removes stale discovery entries even when peer-left was missed', () => {
+  const c = client();
+  c.run("peers.set('ghost', { name: '用户-001' }); selectedPeerId = 'ghost';");
+  c.handlers['room-peers']({ peers: [] });
+  assert.equal(c.run('peers.size'), 0);
+  assert.equal(c.run('selectedPeerId'), null);
+});
+
+test('snapshot probes missing direct peers without resetting the deadline on refresh', () => {
+  const timers = new Map();
+  const c = client(new Map(), { setTimeout: (fn, ms) => { timers.set(fn, ms); return fn; }, clearTimeout: (fn) => timers.delete(fn) });
+  c.context.chat = new Channel();
+  c.run("peers.set('p', { name: 'phone', authorized: true, chatChannel: chat });");
+  c.handlers['room-peers']({ peers: [] });
+  const deadline = [...timers.keys()][0];
+  c.handlers['room-peers']({ peers: [] });
+  assert.equal([...timers.keys()][0], deadline);
+  assert.equal(c.run("peers.has('p')"), true);
+  c.handlers['room-peers']({ peers: [{ socketId: 'p', deviceName: 'phone' }] });
+  assert.equal(timers.size, 0);
+  assert.equal(c.run("peers.get('p').authorized"), true);
+  assert.equal(c.run("peers.get('p').chatChannel"), c.context.chat);
+});
+
+test('copy menu copies the complete original message including whitespace and markup characters', async () => {
+  const c = client(); let copied;
+  c.context.navigator.clipboard = { writeText: async (text) => { copied = text; } };
+  c.run(fs.readFileSync('frontend/message-copy.js', 'utf8'));
+  const original = '\n  第一行 <tag> & "文字"\n\n最后一行\n';
+  c.context.original = original;
+  c.run("selectedCopyText = original;"); await c.run('copySelectedMessage()');
+  assert.equal(copied, original);
+  assert.equal(c.elements.get('copyMessageStatus').textContent, '已复制');
+  assert.equal(c.elements.get('messageCopyMenu').hidden, true);
+  c.run('clearTimeout(copyStatusTimer)');
+});
+
+test('clipboard rejection uses fallback and reports a real failure honestly', async () => {
+  const c = client();
+  c.context.navigator.clipboard = { writeText: async () => { throw Error('denied'); } };
+  let field, removed = false;
+  c.context.document.createElement = () => (field = { style: {}, select() {}, setSelectionRange() {}, remove() { removed = true; } });
+  c.context.document.execCommand = () => false;
+  c.run(fs.readFileSync('frontend/message-copy.js', 'utf8'));
+  c.context.original = '全文\n下一行';
+  c.run('selectedCopyText = original'); await c.run('copySelectedMessage()');
+  assert.equal(field.value, '全文\n下一行'); assert.equal(removed, true);
+  assert.match(c.elements.get('copyMessageStatus').textContent, /复制失败/);
+  c.run('clearTimeout(copyStatusTimer)');
+});
+
+test('multiline text preserves line breaks and indentation on sender and receiver', async () => {
+  const sender = client(), receiver = client(), chat = new Channel();
+  sender.context.chat = chat; receiver.context.chat = new Channel();
+  const text = '\n第一段\n\n  第二段 <hello>\n最后一行\n';
+  sender.run("peers.set('p', { name: 'phone', chatChannel: chat }); activeChatPeerId = 'p';");
+  sender.elements.get('chatInput').value = text; sender.run('sendText()');
+  assert.equal(chat.sent[0].text, text);
+  receiver.run("activeChatPeerId = 'p'; setupChatChannel(chat, 'p');");
+  await receiver.context.chat.onmessage({ data: JSON.stringify(chat.sent[0]) });
+  for (const c of [sender, receiver]) {
+    assert.equal(c.run("chatSessions.get('p')[0].text"), text);
+    assert.ok(c.elements.get('chatMessages').innerHTML.includes(text.replace('<hello>', '&lt;hello&gt;')));
+    assert.match(c.elements.get('chatMessages').innerHTML, /class="message-text"/);
+  }
+  sender.elements.get('chatInput').value = ' \n\t'; sender.run('sendText()');
+  assert.equal(chat.sent.length, 1);
+});
+
 test('large file uses batch reads and preserves every byte in negotiated chunks', async () => {
   const c = client(), channel = new Channel(), chat = new Channel();
   const bytes = Buffer.alloc(9 * 1024 * 1024 + 17); for (let i = 0; i < bytes.length; i++) bytes[i] = i % 251;

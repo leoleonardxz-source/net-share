@@ -16,13 +16,13 @@ test('picker suspension retains identity and routes signals to the reconnected s
     setTimeout(fn, ms) { timers.add(fn); delays.push(ms); return fn; }, clearTimeout(fn) { timers.delete(fn); }, process: { env: {} }, console,
   });
   vm.runInContext(fs.readFileSync('backend/server.js', 'utf8'), context);
-  function socket(id, token) {
+  function socket(id, token, join = true) {
     const handlers = {}, events = [];
     const s = { id, connected: true, handshake: { address: '10.0.0.1', headers: {}, auth: { sessionToken: token } },
       on(name, fn) { handlers[name] = fn; }, emit(event, data) { events.push({ event, data }); }, join() {}, leave() {}, to: io.to,
       disconnect() { s.connected = false; handlers.disconnect(); }, handlers, events,
     };
-    connect(s); handlers.join({ deviceName: id }); return s;
+    connect(s); if (join) handlers.join({ deviceName: id }); return s;
   }
   assert.equal(options.pingInterval, 5000); assert.equal(options.pingTimeout, 19000);
   const desktop = socket('desktop', 'a'.repeat(64));
@@ -48,6 +48,26 @@ test('picker suspension retains identity and routes signals to the reconnected s
   const closing = socket('closing-phone', 'c'.repeat(64));
   closing.handlers['page-leave']();
   assert.ok(broadcasts.some((e) => e.event === 'peer-left' && e.data.socketId === 'closing-phone' && e.data.explicit));
+  desktop.handlers.discover();
+  assert.equal(desktop.events.at(-1).data.peers.length, 0);
+  timers.clear();
+  // Reproduce: join -> suspend -> reconnect -> disconnect BEFORE join.
+  const original = socket('用户-001', 'd'.repeat(64)); original.disconnect();
+  const obsoleteCleanup = [...timers][0];
+  const replacement = socket('replacement', 'd'.repeat(64), false);
+  obsoleteCleanup(); // An obsolete callback must not delete replacement ownership.
+  desktop.handlers.discover();
+  assert.equal(desktop.events.at(-1).data.peers.length, 1);
+  assert.equal(replacement.currentRoom, '10.0.0.1');
+  replacement.disconnect();
+  for (const expire of [...timers]) expire();
+  desktop.handlers.discover();
+  assert.equal(desktop.events.at(-1).data.peers.length, 0);
+  assert.equal(vm.runInContext('sessions.size', context), 1);
+  // Explicit exit before join must remove the inherited room entry as well.
+  const next = socket('next', 'e'.repeat(64)); next.disconnect();
+  const exiting = socket('exiting', 'e'.repeat(64), false);
+  exiting.handlers['page-leave']();
   desktop.handlers.discover();
   assert.equal(desktop.events.at(-1).data.peers.length, 0);
 });

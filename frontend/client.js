@@ -78,12 +78,12 @@ function updateFileMessage(id, transferId, state) { const message = (chatSession
 function renderMessages() {
   if (!activeChatPeerId) { chatMessagesEl.innerHTML = '<div class="chat-placeholder">请选择一个已发现的设备开始聊天或传输文件。</div>'; return; }
   const list = chatSessions.get(activeChatPeerId) || [];
-  chatMessagesEl.innerHTML = list.length ? list.map((message) => {
+  chatMessagesEl.innerHTML = list.length ? list.map((message, index) => {
     let content = '';
-    if (message.type === 'text') content = escapeHtml(message.text);
+    if (message.type === 'text') content = `<div class="message-text">${escapeHtml(message.text)}</div>`;
     else if (message.previewUrl) content = `<div>图片：${escapeHtml(message.name)}</div><img src="${escapeHtml(message.previewUrl)}" alt="${escapeHtml(message.name)}" loading="lazy"><a class="image-download" href="${escapeHtml(message.previewUrl)}" download="${escapeHtml(message.name)}">下载原图</a>${message.state ? `<div class="message-time">${escapeHtml(message.state)}</div>` : ''}`;
     else content = `文件：${escapeHtml(message.name)}（${formatBytes(message.size)}）${message.state ? `<div class="message-time">${escapeHtml(message.state)}</div>` : ''}`;
-    return `<div class="message-row ${message.sender === 'me' ? 'me' : 'peer'}"><div class="message-bubble"><div>${content}</div><div class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</div></div></div>`;
+    return `<div class="message-row ${message.sender === 'me' ? 'me' : 'peer'}"><div class="message-bubble" ${message.type === 'text' ? `data-text-index="${index}"` : ''}><div>${content}</div><div class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</div></div></div>`;
   }).join('') : '<div class="chat-placeholder">暂时还没有消息。</div>';
   chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
 }
@@ -254,7 +254,7 @@ async function createOffer(id) {
   const offer = await pc.createOffer({ iceRestart: true }); await pc.setLocalDescription(offer); socket.emit('signal', { to: id, signalData: { type: 'offer', sdp: pc.localDescription, reset } });
 }
 function sendText() {
-  const text = chatInput.value.trim(); if (!text || !activeChatPeerId) return; const message = { type: 'text', text, timestamp: Date.now() }; const peer = peers.get(activeChatPeerId); addMessage(activeChatPeerId, { ...message, sender: 'me' }); chatInput.value = '';
+  const text = chatInput.value; if (!text.trim() || !activeChatPeerId) return; const message = { type: 'text', text, timestamp: Date.now() }; const peer = peers.get(activeChatPeerId); addMessage(activeChatPeerId, { ...message, sender: 'me' }); chatInput.value = '';
   if (peer?.chatChannel?.readyState === 'open') peer.chatChannel.send(JSON.stringify(message)); else { peer.requested = true; pendingMessages.set(activeChatPeerId, message); socket.emit('chat-request', { to: activeChatPeerId }); log(`正在请求与 ${peer?.name} 建立直连`, 'info'); }
 }
 function requestConnection(id) { const peer = peers.get(id); if (!peer) return; peer.requested = true; openChat(id); if (peer.chatChannel?.readyState !== 'open') { socket.emit('chat-request', { to: id }); log(`正在请求与 ${peer.name} 建立直连`, 'info'); } }
@@ -316,7 +316,22 @@ function initSocket() {
   socket.on('connect', () => { setStatus(true, '已连接信令服务，正在发现本地设备'); discoverAndJoin(); socket.emit('file-picker', { active: pickingFile }); });
   socket.on('disconnect', () => setStatus(false, '信令服务连接断开'));
   socket.on('discovered-peers', ({ peers: remote }) => { deviceName = chooseDeviceName(remote); deviceNameInput.value = deviceName; socket.emit('join', { deviceName }); });
-  socket.on('room-peers', ({ peers: remote }) => { const old = new Map(peers); remote.forEach((peer) => peers.set(peer.socketId, { ...old.get(peer.socketId), name: peer.deviceName || '未命名设备', status: old.get(peer.socketId)?.status || 'discovered' })); if (selectedPeerId && !peers.has(selectedPeerId)) selectedPeerId = null; setStatus(true, `本机：${deviceName} · 已发现 ${peers.size} 台局域网设备`); updatePeerList(); });
+  socket.on('room-peers', ({ peers: remote }) => {
+    const listed = new Set(remote.map((peer) => peer.socketId));
+    for (const id of [...peers.keys()]) {
+      if (!listed.has(id) && !offlineProbes.has(id)) handlePeerOffline(id);
+    }
+    for (const remotePeer of remote) {
+      const peer = peers.get(remotePeer.socketId) || { status: 'discovered' };
+      peer.name = remotePeer.deviceName || '未命名设备';
+      peer.signalingOffline = false;
+      clearOfflineProbe(remotePeer.socketId);
+      peers.set(remotePeer.socketId, peer);
+    }
+    if (selectedPeerId && !peers.has(selectedPeerId)) selectedPeerId = null;
+    setStatus(true, `本机：${deviceName} · 已发现 ${peers.size} 台局域网设备`);
+    updatePeerList();
+  });
   socket.on('peer-joined', (peer) => { peers.set(peer.socketId, { ...peers.get(peer.socketId), name: peer.deviceName || '未命名设备', status: peers.get(peer.socketId)?.status || 'discovered' }); updatePeerList(); });
   socket.on('peer-left', ({ socketId, explicit }) => handlePeerOffline(socketId, explicit));
   socket.on('chat-leave', ({ from }) => handlePeerChatLeave(from));
@@ -364,7 +379,7 @@ function initSocket() {
     } catch (error) { log('直连协商失败：' + error.message, 'error'); }
   });
 }
-$('sendChatButton').addEventListener('click', sendText); chatInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); sendText(); } }); $('attachFileButton').addEventListener('click', () => { pickerPeerId = activeChatPeerId; pickingFile = true; socket?.emit('file-picker', { active: true }); chatFileInput.click(); }); chatFileInput.addEventListener('change', (event) => { finishFilePicker(); offerFile(event.target.files[0], pickerPeerId); event.target.value = ''; }); $('backToHomeBtn').addEventListener('click', closeChat); $('closeChatBtn').addEventListener('click', leaveChat); startChatButton.addEventListener('click', () => selectedPeerId && requestConnection(selectedPeerId)); refreshPeersButton.addEventListener('click', discoverAndJoin);
+$('sendChatButton').addEventListener('click', sendText); chatInput.addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); sendText(); } }); $('attachFileButton').addEventListener('click', () => { pickerPeerId = activeChatPeerId; pickingFile = true; socket?.emit('file-picker', { active: true }); chatFileInput.click(); }); chatFileInput.addEventListener('change', (event) => { finishFilePicker(); offerFile(event.target.files[0], pickerPeerId); event.target.value = ''; }); $('backToHomeBtn').addEventListener('click', closeChat); $('closeChatBtn').addEventListener('click', leaveChat); startChatButton.addEventListener('click', () => selectedPeerId && requestConnection(selectedPeerId)); refreshPeersButton.addEventListener('click', discoverAndJoin);
 setStatus(false, '正在连接信令服务…'); updatePeerList(); initSocket(); setInterval(discoverAndJoin, CONFIG.refreshIntervalMs);
 
 $('stopTransferButton').addEventListener('click', () => { if (transferInProgress) cancelTransfer(transferInProgress.transferId, true); });
